@@ -4,9 +4,9 @@
 
 This project implements the forward computation of the OpenCLIP ViT-B-32 image encoder using NumPy.
 
-The goal is to reproduce the original model's image feature extraction process using the supplied pretrained model parameters, without using PyTorch, GPU acceleration, or additional model training.
+The objective is to reproduce the image feature extraction process of the pretrained model using the supplied model parameters, without PyTorch, GPU acceleration, or additional model training.
 
-The implementation follows the original model architecture and aims to numerically match the supplied reference outputs.
+The implementation follows the original model architecture and is designed to numerically match the provided reference outputs.
 
 ### Main Features
 
@@ -20,7 +20,7 @@ The implementation follows the original model architecture and aims to numerical
 
 ## 2. Model Architecture
 
-The implemented image encoder follows the OpenCLIP ViT-B-32 architecture.
+The implementation follows the OpenCLIP ViT-B-32 architecture.
 
 | Component | Configuration |
 |---|---|
@@ -33,9 +33,40 @@ The implemented image encoder follows the OpenCLIP ViT-B-32 architecture.
 | Tokens per image | 50 |
 | Output dimension | 512 |
 
-The computation pipeline is:
+### Computation Pipeline
 
-Input Image → Patchify → Patch Embedding → CLS Token and Positional Embedding → 12 Transformer Blocks → CLS Token Selection → Post LayerNorm → Projection → L2 Normalization.
+```text
+Input Image [B,3,224,224]
+          |
+          v
+      Patchify
+          |
+          v
+   Patch Embedding
+          |
+          v
+ CLS Token + Positional Embedding
+          |
+          v
+  12 Transformer Blocks
+          |
+          v
+    CLS Token Selection
+          |
+          v
+      Post LayerNorm
+          |
+          v
+     Output Projection
+          |
+          v
+     L2 Normalization
+          |
+          v
+ Output Features [B,512]
+```
+
+The final output contains one normalized 512-dimensional feature vector for each input image.
 
 ## 3. Project Structure
 
@@ -52,7 +83,11 @@ numpy_image_encoder/
 │   ├── 02_imageio_images.py
 │   ├── 03_forward_tokens.py
 │   ├── 04_join_arrays.py
-│   └── patch_trace.py
+│   ├── patch_trace.py
+│   ├── README.txt
+│   ├── SOURCES.txt
+│   ├── expected-outputs/
+│   └── images/
 │
 ├── practice/
 │   └── project1_exercises.pdf
@@ -71,14 +106,21 @@ numpy_image_encoder/
 ├── transformer_steps.py
 ├── PPT-CODE-MAP.txt
 ├── SOURCE-MANIFEST.json
+├── .gitattributes
+├── .gitignore
 └── README.md
 ```
 
-Note: The pretrained model parameter file and reference output data are not included in the public repository because of their size. Obtain them from the original course attachment and place them in their corresponding local directories.
+**Note:** The large pretrained model parameter file and reference output data are not included in the public repository. Obtain these files from the original course attachment and place them in their corresponding local directories before running the complete numerical checks.
+
+Required local files:
+
+- `weights/image_encoder.npz`
+- `assets/reference_outputs.npz`
 
 ## 4. Environment Setup
 
-Requirements:
+### Requirements
 
 - Python 3.9 or later
 - NumPy
@@ -97,62 +139,84 @@ No GPU, PyTorch, or OpenCLIP package is required.
 
 The main implementation is located in `image_encoder.py`.
 
-Six exercise groups have been completed:
+All six required exercise groups have been implemented.
 
 | Exercise | Method | Implementation |
 |---|---|---|
 | TODO-01 | `ImageEncoder.patchify` | Splits images into 49 patches |
-| TODO-02 | `MultiHeadAttention.split_heads` | Organizes features into multiple heads |
-| TODO-03 | `MultiHeadAttention.__call__` | Computes attention and merges heads |
+| TODO-02 | `MultiHeadAttention.split_heads` | Organizes features into multiple attention heads |
+| TODO-03 | `MultiHeadAttention.__call__` | Computes attention scores, weighted values and output projection |
 | TODO-04 | `TransformerBlock.__call__` | Implements attention, MLP and residual connections |
-| TODO-05 | `ImageEncoder.embed` | Generates image patch embeddings and positional embeddings |
-| TODO-06 | `ImageEncoder.__call__` | Extracts and normalizes final image features |
+| TODO-05 | `ImageEncoder.embed` | Generates patch embeddings and adds CLS and positional embeddings |
+| TODO-06 | `ImageEncoder.__call__` | Extracts CLS features, applies normalization and projection |
 
-All calculations are implemented using NumPy operations, including reshape, transpose, matrix multiplication, indexing and broadcasting.
+The implementation uses NumPy operations, including:
+
+- `reshape()` and `transpose()`
+- Matrix multiplication
+- Array indexing
+- Reduction operations
+- Broadcasting
+
+The supplied LayerNorm, GELU, attention coefficient conversion and vector normalization functions are reused from `helpers.py`.
+
+The model parameters remain unchanged throughout the forward computation.
 
 ## 6. Running the Project
 
-First, check the required image assets:
+Run the following commands from the project root directory.
+
+### Step 1: Check Assets
 
 ```bash
 python check.py --stage assets
 ```
 
-Check image preprocessing:
+### Step 2: Check Image Preprocessing
 
 ```bash
 python check.py --stage preprocess
 ```
 
-Check patch extraction:
+### Step 3: Check Patch Extraction
 
 ```bash
 python check.py --stage patches
 ```
 
-Run all numerical checks:
+### Step 4: Run All Numerical Checks
 
 ```bash
 python check.py --stage all
 ```
 
-Generate image feature vectors:
+Additional stage-specific checks:
+
+```bash
+python check.py --stage tokens
+python check.py --stage block0
+python check.py --stage last_tokens
+python check.py --stage output
+python check.py --stage batch
+```
+
+### Step 5: Generate Image Features
 
 ```bash
 python run.py --output output_tokens.npz
 ```
 
-Process custom images:
+To process custom images:
 
 ```bash
 python run.py --images path/to/a.jpg path/to/b.png --output my_tokens.npz
 ```
 
-The output contains one normalized 512-dimensional feature vector per image.
+The generated NPZ file contains image IDs and their corresponding output feature vectors.
 
 ## 7. Numerical Verification Results
 
-The implementation has been tested against the supplied independent FP32 reference outputs.
+The implementation was tested against the supplied independent FP32 reference outputs.
 
 The following results were obtained during local testing:
 
@@ -166,22 +230,33 @@ The following results were obtained during local testing:
 | Output | 5.439e-07 | 8.311e-08 |
 | Batch | 4.619e-07 | 7.632e-08 |
 
-**Verification status: PASS**
+**Reported verification status: PASS**
 
-All numerical checks passed within the specified tolerances, including intermediate transformer representations, final output vectors and batch processing.
+All recorded numerical checks passed within the specified tolerances.
 
-The final output has shape `[B,512]`, and the internal token sequence has shape `[B,50,768]`.
+The output token has shape `[B,512]`, while the internal token sequence has shape `[B,50,768]`.
 
-## 8. Important Notes
+The implementation also supports different image inputs, batch sizes, changed input orders and duplicate images.
 
-- The supplied model parameters are used without modification.
-- No model training or parameter updates are performed.
-- Reference output arrays are used only for verification, never as encoder inputs.
-- The implementation supports different image batch sizes.
-- The final image encoder maintains the required interface for potential reuse in the larger project.
+## 8. Important Implementation Notes
+
+1. Each input image is divided into 49 patches of size 32 × 32.
+2. Patch projection uses the supplied weight matrix without an additional bias.
+3. Attention and MLP linear layers use transposed weight matrices.
+4. The visual projection matrix is already stored in `[768,512]` format and is not transposed.
+5. The supplied GELU and LayerNorm implementations are reused.
+6. Each Transformer block contains two residual connections.
+7. Reference outputs are used only for numerical verification, never as encoder inputs.
 
 ## 9. Conclusion
 
-This project completes the NumPy implementation of the OpenCLIP ViT-B-32 image encoder. The implementation reproduces the required forward computation and passes the provided numerical verification tests.
+This project completes the NumPy implementation of the OpenCLIP ViT-B-32 image encoder.
 
-The completed `image_encoder.py` can be reused in the image tower of the final project together with the supplied `helpers.py`.
+All six required implementation tasks have been completed. The implementation reproduces the model's image forward computation and has passed the recorded numerical verification tests.
+
+The resulting `image_encoder.py` maintains the required interface and can be reused as the image encoder component in the subsequent final project.
+
+---
+
+**Project:** NumPy OpenCLIP ViT-B-32 Image Encoder  
+**Repository:** https://github.com/tyh-szdx/numpy_image_encoder
