@@ -5,3 +5,7 @@ venv/
 .pytest_cache/
 .idea/
 .vscode/
+
+# Large model and reference data
+weights/image_encoder.npz
+assets/reference_outputs.npz
